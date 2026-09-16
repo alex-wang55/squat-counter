@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Squat Counter</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>Squat Rep Counter</h1>
+      <p class="subtitle">Real-time pose tracking in your browser — no video ever leaves your device.</p>
+    </header>
+
+    <div class="main">
+      <div class="video-wrap">
+        <video id="video" autoplay playsinline muted></video>
+        <canvas id="overlay"></canvas>
+        <div id="loading" class="loading">
+          <div class="spinner"></div>
+          <span id="loading-text">Loading pose model…</span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="stat">
+          <span class="stat-label">Reps</span>
+          <span id="rep-count" class="stat-value">0</span>
+        </div>
+
+        <div class="stat-row">
+          <div class="stat small">
+            <span class="stat-label">Phase</span>
+            <span id="phase" class="stat-value small">—</span>
+          </div>
+          <div class="stat small">
+            <span class="stat-label">Knee angle</span>
+            <span id="angle" class="stat-value small">—</span>
+          </div>
+        </div>
+
+        <div id="feedback" class="feedback">Start the camera and get into frame (full body, side-on works best).</div>
+
+        <div class="controls">
+          <button id="start-btn">Start Camera</button>
+          <button id="reset-btn" disabled>Reset Reps</button>
+        </div>
+
+        <details class="tips">
+          <summary>Tips for best tracking</summary>
+          <ul>
+            <li>Stand far enough back that your hips, knees, and ankles are all visible.</li>
+            <li>A side-on (profile) view tracks squat depth most accurately.</li>
+            <li>Make sure you're well-lit — backlighting confuses the model.</li>
+          </ul>
+        </details>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
