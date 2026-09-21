@@ -17,6 +17,11 @@
       <div class="video-wrap">
         <video id="video" autoplay playsinline muted></video>
         <canvas id="overlay"></canvas>
+        <div id="popup-layer"></div>
+        <div id="rank-badge" class="rank-badge" hidden>
+          <span id="rank-emoji">🐣</span>
+          <span id="rank-name">Newbie</span>
+        </div>
         <div id="loading" class="loading">
           <div class="spinner"></div>
           <span id="loading-text">Loading pose model…</span>
@@ -24,9 +29,26 @@
       </div>
 
       <div class="panel">
-        <div class="stat">
-          <span class="stat-label">Reps</span>
-          <span id="rep-count" class="stat-value">0</span>
+        <div class="stat-row">
+          <div class="stat">
+            <span class="stat-label">Reps</span>
+            <span id="rep-count" class="stat-value">0</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Score</span>
+            <span id="score" class="stat-value accent-score">0</span>
+          </div>
+        </div>
+
+        <div class="stat-row">
+          <div class="stat small">
+            <span class="stat-label">Streak</span>
+            <span id="streak" class="stat-value small">0</span>
+          </div>
+          <div class="stat small">
+            <span class="stat-label">Best score</span>
+            <span id="best-score" class="stat-value small">0</span>
+          </div>
         </div>
 
         <div class="stat-row">
@@ -48,11 +70,21 @@
         </div>
 
         <details class="tips">
+          <summary>How scoring works</summary>
+          <ul>
+            <li><strong>Perfect</strong> squat (deep) = 25 pts · <strong>Great</strong> = 15 pts · <strong>Good</strong> = 10 pts · shallow = 5 pts</li>
+            <li>Chain good-or-better reps for a <strong>streak bonus</strong> every 3 in a row.</li>
+            <li>Your best score is saved on this device, so you can beat it next time.</li>
+          </ul>
+        </details>
+
+        <details class="tips">
           <summary>Tips for best tracking</summary>
           <ul>
             <li>Stand far enough back that your hips, knees, and ankles are all visible.</li>
             <li>A side-on (profile) view tracks squat depth most accurately.</li>
             <li>Make sure you're well-lit — backlighting confuses the model.</li>
+            <li>If your legs go out of frame (e.g. sitting down), tracking pauses on purpose — reps won't be counted until your full leg is back in view.</li>
           </ul>
         </details>
       </div>
