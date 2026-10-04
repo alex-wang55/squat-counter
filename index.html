@@ -2,95 +2,201 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Squat Counter</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Squat Quest</title>
+<meta name="description" content="A squat game in your browser. Real-time pose tracking scores every rep — your video never leaves your device." />
+<meta name="theme-color" content="#0b0d12" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8F%8B%EF%B8%8F%3C/text%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;800;900&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div class="app">
-    <header>
-      <h1>Squat Rep Counter</h1>
-      <p class="subtitle">Real-time pose tracking in your browser — no video ever leaves your device.</p>
-    </header>
-
-    <div class="main">
-      <div class="video-wrap">
-        <video id="video" autoplay playsinline muted></video>
-        <canvas id="overlay"></canvas>
-        <div id="popup-layer"></div>
-        <div id="rank-badge" class="rank-badge" hidden>
-          <span id="rank-emoji">🐣</span>
-          <span id="rank-name">Newbie</span>
-        </div>
-        <div id="loading" class="loading">
-          <div class="spinner"></div>
-          <span id="loading-text">Loading pose model…</span>
-        </div>
-      </div>
-
-      <div class="panel">
-        <div class="stat-row">
-          <div class="stat">
-            <span class="stat-label">Reps</span>
-            <span id="rep-count" class="stat-value">0</span>
-          </div>
-          <div class="stat">
-            <span class="stat-label">Score</span>
-            <span id="score" class="stat-value accent-score">0</span>
-          </div>
-        </div>
-
-        <div class="stat-row">
-          <div class="stat small">
-            <span class="stat-label">Streak</span>
-            <span id="streak" class="stat-value small">0</span>
-          </div>
-          <div class="stat small">
-            <span class="stat-label">Best score</span>
-            <span id="best-score" class="stat-value small">0</span>
-          </div>
-        </div>
-
-        <div class="stat-row">
-          <div class="stat small">
-            <span class="stat-label">Phase</span>
-            <span id="phase" class="stat-value small">—</span>
-          </div>
-          <div class="stat small">
-            <span class="stat-label">Knee angle</span>
-            <span id="angle" class="stat-value small">—</span>
-          </div>
-        </div>
-
-        <div id="feedback" class="feedback">Start the camera and get into frame (full body, side-on works best).</div>
-
-        <div class="controls">
-          <button id="start-btn">Start Camera</button>
-          <button id="reset-btn" disabled>Reset Reps</button>
-        </div>
-
-        <details class="tips">
-          <summary>How scoring works</summary>
-          <ul>
-            <li><strong>Perfect</strong> squat (deep) = 25 pts · <strong>Great</strong> = 15 pts · <strong>Good</strong> = 10 pts · shallow = 5 pts</li>
-            <li>Chain good-or-better reps for a <strong>streak bonus</strong> every 3 in a row.</li>
-            <li>Your best score is saved on this device, so you can beat it next time.</li>
-          </ul>
-        </details>
-
-        <details class="tips">
-          <summary>Tips for best tracking</summary>
-          <ul>
-            <li>Stand far enough back that your hips, knees, and ankles are all visible.</li>
-            <li>A side-on (profile) view tracks squat depth most accurately.</li>
-            <li>Make sure you're well-lit — backlighting confuses the model.</li>
-            <li>If your legs go out of frame (e.g. sitting down), tracking pauses on purpose — reps won't be counted until your full leg is back in view.</li>
-          </ul>
-        </details>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">🏋️</div>
+      <div>
+        <h1>Squat <span>Quest</span></h1>
+        <p class="tagline">Pose tracking turns every squat into points. Your video never leaves your device.</p>
       </div>
     </div>
-  </div>
+    <div class="topbar-right">
+      <div class="rank-chip" id="rank-chip" title="Your rank grows with lifetime squats">
+        <span class="rank-emoji" id="rank-emoji">🐣</span>
+        <span class="rank-text">
+          <span class="rank-name" id="rank-name">Newbie</span>
+          <span class="rank-bar"><span class="rank-bar-fill" id="rank-bar-fill"></span></span>
+          <span class="rank-next" id="rank-next"></span>
+        </span>
+      </div>
+      <button type="button" class="icon-btn" id="sound-btn" aria-pressed="true" aria-label="Sound on">🔊</button>
+    </div>
+  </header>
 
-  <script type="module" src="app.js"></script>
+  <nav class="modes" id="mode-list" aria-label="Game mode"></nav>
+
+  <main class="layout">
+    <section class="stage-col">
+      <div class="stage" id="stage" data-state="idle">
+        <video id="video" autoplay playsinline muted></video>
+        <canvas id="overlay" width="640" height="480"></canvas>
+
+        <div class="hud">
+          <div class="hud-top">
+            <span class="hud-chip" id="hud-mode">Free Play</span>
+            <span class="hud-timer" id="hud-timer" hidden>0:00</span>
+            <span class="hud-chip hud-progress" id="hud-progress" hidden>0/20</span>
+          </div>
+          <span class="hud-chip hud-demo" id="hud-demo" hidden>Demo<span class="hud-demo-long"> · simulated player</span></span>
+
+          <div class="combo" id="combo" hidden>
+            <div class="combo-num"><span id="combo-count">0</span><small>combo</small></div>
+            <div class="combo-mult" id="combo-mult">×1</div>
+            <div class="combo-bar"><span id="combo-bar-fill"></span></div>
+          </div>
+
+          <div class="gauge" id="gauge" hidden aria-hidden="true">
+            <div class="gauge-labels" id="gauge-labels"></div>
+            <div class="gauge-track" id="gauge-track">
+              <div class="gauge-fill" id="gauge-fill"></div>
+              <div class="gauge-max" id="gauge-max"></div>
+            </div>
+          </div>
+
+          <div class="hold-prompt" id="hold-prompt" hidden>Squat to Good depth to start the clock</div>
+
+          <div class="go-banner" id="go-banner" hidden>GO!</div>
+          <div class="popup-layer" id="popup-layer"></div>
+        </div>
+
+        <div class="screen" id="screen-start">
+          <div class="screen-card">
+            <div class="screen-icon" id="start-icon">🎯</div>
+            <h2 id="start-title">Free Play</h2>
+            <p id="start-desc"></p>
+            <button type="button" class="btn primary big" id="start-play">Start camera &amp; play</button>
+            <button type="button" class="link-btn" id="start-alt">No camera? Watch a demo run</button>
+            <p class="fine">Stand side-on, 2–3 m back, so your whole body is in view.</p>
+          </div>
+        </div>
+
+        <div class="screen" id="screen-loading" hidden>
+          <div class="screen-card compact">
+            <div class="spinner"></div>
+            <p id="loading-text">Loading pose model…</p>
+          </div>
+        </div>
+
+        <div class="screen screen-calibrate" id="screen-calibrate" hidden>
+          <div class="calib">
+            <svg class="calib-ring" viewBox="0 0 100 100" aria-hidden="true">
+              <circle class="calib-track" cx="50" cy="50" r="44" />
+              <circle class="calib-progress" id="calib-progress" cx="50" cy="50" r="44" />
+            </svg>
+            <span class="calib-emoji">🧍</span>
+          </div>
+          <h2>Stand tall</h2>
+          <p id="calib-hint">Whole body in view, side-on to the camera.</p>
+        </div>
+
+        <div class="screen screen-countdown" id="screen-countdown" hidden>
+          <span class="countdown-num" id="countdown-num">3</span>
+        </div>
+
+        <div class="screen" id="screen-results" hidden>
+          <div class="screen-card results">
+            <div class="ribbon" id="res-best" hidden>New best!</div>
+            <div class="grade" id="res-grade">A</div>
+            <h2 id="res-title">Time's up!</h2>
+            <div class="res-main" id="res-main">0 pts</div>
+            <p class="res-sub" id="res-sub"></p>
+            <dl class="res-stats" id="res-stats"></dl>
+            <div class="tier-bar" id="res-tierbar"></div>
+            <div class="res-actions">
+              <button type="button" class="btn primary" id="res-again">Play again</button>
+              <button type="button" class="btn" id="res-menu">Change mode</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="screen" id="screen-error" hidden>
+          <div class="screen-card">
+            <div class="screen-icon">📷</div>
+            <h2 id="error-title">Camera unavailable</h2>
+            <p id="error-text"></p>
+            <button type="button" class="btn primary" id="error-retry">Try again</button>
+            <button type="button" class="link-btn" id="error-demo">Watch a demo run instead</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="feedback" id="feedback" role="status">Pick a mode, then hit Play.</div>
+    </section>
+
+    <aside class="panel">
+      <div class="stats">
+        <div class="stat"><span class="stat-label">Score</span><span class="stat-value score" id="stat-score">0</span></div>
+        <div class="stat"><span class="stat-label">Reps</span><span class="stat-value" id="stat-reps">0</span></div>
+        <div class="stat"><span class="stat-label">Best combo</span><span class="stat-value" id="stat-combo">0</span></div>
+        <div class="stat"><span class="stat-label">Knee angle</span><span class="stat-value" id="stat-angle">—</span></div>
+      </div>
+
+      <div class="tiers">
+        <div class="tier-count perfect"><b id="tier-perfect">0</b><small>Perfect</small></div>
+        <div class="tier-count great"><b id="tier-great">0</b><small>Great</small></div>
+        <div class="tier-count good"><b id="tier-good">0</b><small>Good</small></div>
+        <div class="tier-count shallow"><b id="tier-shallow">0</b><small>Shallow</small></div>
+      </div>
+
+      <div class="controls">
+        <button type="button" class="btn primary" id="play-btn">Play</button>
+        <button type="button" class="btn" id="end-btn" disabled>End run</button>
+        <button type="button" class="btn ghost" id="source-btn" disabled>Stop camera</button>
+      </div>
+
+      <section class="card">
+        <h2 class="card-title">Leaderboard <span class="card-sub" id="board-mode">Free Play</span></h2>
+        <ol class="board" id="board"></ol>
+      </section>
+
+      <section class="card">
+        <h2 class="card-title">Achievements <span class="card-sub" id="ach-count">0/12</span></h2>
+        <ul class="achievements" id="achievements"></ul>
+      </section>
+
+      <details class="card">
+        <summary class="card-title">Settings</summary>
+        <div class="setting">
+          <span class="setting-label" id="difficulty-label">Depth difficulty</span>
+          <div class="segmented" id="difficulty" role="radiogroup" aria-labelledby="difficulty-label"></div>
+          <p class="setting-hint" id="difficulty-hint"></p>
+        </div>
+        <div class="setting">
+          <label class="setting-label" for="model-select">Tracking model</label>
+          <select id="model-select">
+            <option value="full">Accurate (recommended)</option>
+            <option value="lite">Fast (older devices)</option>
+          </select>
+        </div>
+        <button type="button" class="link-btn danger" id="reset-progress">Reset all progress</button>
+      </details>
+
+      <details class="card">
+        <summary class="card-title">How scoring works</summary>
+        <ul class="howto">
+          <li><b class="c-perfect">Perfect</b> 100 · <b class="c-great">Great</b> 70 · <b class="c-good">Good</b> 50 · <b class="c-shallow">Shallow</b> 10 points, based on how deep you go.</li>
+          <li>Chain Good-or-better reps to grow your <b>combo multiplier</b>: ×1.5 at 5, ×2 at 10, ×2.5 at 15, ×3 at 20. A shallow rep breaks the combo.</li>
+          <li>Every run starts with a one-second calibration: stand tall so the game learns your straight-leg position. Depth is measured from there.</li>
+          <li>Keyboard: <kbd>Space</kbd> to play, <kbd>Esc</kbd> to end a run.</li>
+        </ul>
+      </details>
+    </aside>
+  </main>
+
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+</div>
+<script type="module" src="src/main.js"></script>
 </body>
 </html>
