@@ -25,6 +25,7 @@ const el = {
   comboBarFill: $("combo-bar-fill"),
   gauge: $("gauge"),
   gaugeTrack: $("gauge-track"),
+  gaugeTicks: $("gauge-ticks"),
   gaugeFill: $("gauge-fill"),
   gaugeMax: $("gauge-max"),
   gaugeLabels: $("gauge-labels"),
@@ -46,9 +47,9 @@ const el = {
   startAlt: $("start-alt"),
   loadingText: $("loading-text"),
   calibProgress: $("calib-progress"),
+  calibPct: $("calib-pct"),
   calibHint: $("calib-hint"),
   countdownNum: $("countdown-num"),
-  resBest: $("res-best"),
   resGrade: $("res-grade"),
   resTitle: $("res-title"),
   resMain: $("res-main"),
@@ -75,8 +76,7 @@ const el = {
   boardMode: $("board-mode"),
   achievements: $("achievements"),
   achCount: $("ach-count"),
-  rankChip: $("rank-chip"),
-  rankEmoji: $("rank-emoji"),
+  rank: $("rank"),
   rankName: $("rank-name"),
   rankBarFill: $("rank-bar-fill"),
   rankNext: $("rank-next"),
@@ -88,39 +88,39 @@ const el = {
   toasts: $("toasts"),
 };
 
-const TIER_COLOR = Object.fromEntries(TIERS.map((t) => [t.id, t.color]));
-const NEUTRAL_LEG = "#7dd3fc";
-const LOST_LEG = "#f87171";
+const TIER = Object.fromEntries(TIERS.map((t) => [t.id, t]));
+const NEUTRAL_LEG = "rgba(255, 255, 255, 0.9)";
+const LOST_LEG = "#ff5a4f";
 const GAUGE_MAX = 125;
 const RING_CIRCUMFERENCE = 2 * Math.PI * 44;
 
 const BURSTS = {
-  perfect: { count: 48, colors: ["#f472b6", "#fbbf24", "#38bdf8", "#4ade80", "#ffffff"], speed: 430, size: 9, life: 1.3 },
-  great: { count: 28, colors: ["#fbbf24", "#fde68a", "#ffffff"], speed: 330, size: 7, life: 1 },
-  good: { count: 14, colors: ["#4ade80", "#bbf7d0"], speed: 250, size: 6, life: 0.8 },
+  perfect: { count: 24, colors: [TIER.perfect.color, "#ffffff"], speed: 360, size: 6, life: 1 },
+  great: { count: 14, colors: [TIER.great.color, "#ffffff"], speed: 290, size: 5, life: 0.8 },
+  good: { count: 8, colors: [TIER.good.color], speed: 220, size: 4, life: 0.6 },
 };
 
 const TRACKING_MESSAGES = {
-  noPerson: "No one in view — step into the frame.",
-  outOfFrame: "Part of your legs is out of frame — step back until your feet are in view.",
-  tooSmall: "You're quite far away — step a little closer.",
-  visibility: "Can't see your legs clearly — try brighter light or turn side-on.",
-  implausible: "That pose looks off — stand upright, side-on to the camera.",
+  noPerson: "No one in view. Step into the frame.",
+  outOfFrame: "Your legs are cut off. Step back until your feet are in view.",
+  tooSmall: "You're quite far away. Step a little closer.",
+  visibility: "Can't see your legs clearly. Try brighter light or turn side-on.",
+  implausible: "That pose looks off. Stand upright, side-on to the camera.",
   notUpright: "Keep your head and shoulders in view and stand upright.",
 };
 
 const REJECT_MESSAGES = {
-  tooFast: "Too quick to count — control the way down.",
-  tooSlow: "That one took over 10 seconds, so it didn't count.",
-  noHipDrop: "That looked like a knee lift — sit your hips back and down.",
-  lost: "Lost sight of your legs mid-rep — that one didn't count.",
+  tooFast: "Too quick to count. Control the way down.",
+  tooSlow: "That rep took over 10 seconds, so it didn't count.",
+  noHipDrop: "That looked like a knee lift. Sit your hips back and down.",
+  lost: "Lost sight of your legs mid-rep, so it didn't count.",
 };
 
 const REP_MESSAGES = {
-  perfect: (e) => `Perfect depth (${Math.round(e.minAngle)}°) — textbook! 🔥`,
-  great: (e) => `Great rep — ${Math.round(e.minAngle)}° at the bottom.`,
-  good: () => "Good rep. Sink a little lower for Great.",
-  shallow: (e) => `Too shallow (${Math.round(e.minAngle)}°) — squat lower to keep your combo.`,
+  perfect: (e) => `Perfect. ${Math.round(e.minAngle)}° at the bottom.`,
+  great: (e) => `Great rep. ${Math.round(e.minAngle)}° at the bottom.`,
+  good: () => "Good rep. A little lower for Great.",
+  shallow: (e) => `Too shallow at ${Math.round(e.minAngle)}°. Go lower to keep your combo.`,
 };
 
 // ---------- state ----------
@@ -155,12 +155,30 @@ const saveSettings = () => store.set("settings", settings);
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 const now = () => performance.now();
 
+const SVG_NS = "http://www.w3.org/2000/svg";
+function icon(name) {
+  const svg = document.createElementNS(SVG_NS, "svg");
+  svg.setAttribute("class", "icon");
+  svg.setAttribute("aria-hidden", "true");
+  const use = document.createElementNS(SVG_NS, "use");
+  use.setAttribute("href", `#i-${name}`);
+  svg.append(use);
+  return svg;
+}
+
+function span(className, text) {
+  const node = document.createElement("span");
+  node.className = className;
+  node.textContent = text;
+  return node;
+}
+
 // ---------- sources ----------
 
 async function ensureModel() {
   if (landmarker && landmarkerModel === settings.model) return;
   showScreen("loading");
-  el.loadingText.textContent = `Loading ${settings.model === "full" ? "accurate" : "fast"} pose model…`;
+  el.loadingText.textContent = `Loading ${settings.model === "full" ? "accurate" : "fast"} pose model`;
   const { createLandmarker } = await import("./landmarker.js");
   const next = await createLandmarker(settings.model);
   landmarker?.close();
@@ -174,7 +192,7 @@ async function startCamera() {
     await ensureModel();
     stage = "camera";
     showScreen("loading");
-    el.loadingText.textContent = "Waiting for camera permission…";
+    el.loadingText.textContent = "Waiting for camera permission";
     const stream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
       audio: false,
@@ -241,7 +259,7 @@ function stopSource() {
   ctx.clearRect(0, 0, el.canvas.width, el.canvas.height);
   onState("idle");
   renderPanel();
-  setFeedback(wasDemo ? "Demo over — ready when you are." : "Camera stopped.");
+  setFeedback(wasDemo ? "Demo finished. Ready when you are." : "Camera stopped.");
 }
 
 function configureStage(w, h) {
@@ -278,7 +296,6 @@ async function play() {
 }
 
 function startSession() {
-  const t = now();
   detector.recalibrate();
   particles.clear();
   el.popupLayer.replaceChildren();
@@ -346,7 +363,7 @@ function onDetectorEvent(e) {
   if (e.type === "trackingLost" && game.state !== "calibrating") {
     setFeedback(TRACKING_MESSAGES[e.reason] ?? TRACKING_MESSAGES.visibility, "warn");
   } else if (e.type === "trackingRegained" && game.state === "playing") {
-    setFeedback("Back in view — keep going!");
+    setFeedback("Back in view.");
   } else if (e.type === "calibrated") {
     sfx.tick();
   }
@@ -374,31 +391,31 @@ function handleGameEvents(events) {
         onRep(e);
         break;
       case "multiplier":
-        popup(`×${e.multiplier} MULTIPLIER`, "mult", { x: 0.5, y: 0.3 });
+        popup(`×${e.multiplier.toFixed(1)}`, "mult", { x: 0.5, y: 0.32 }, "Multiplier");
         restartAnimation(el.combo, "bump");
         sfx.multiplier();
         break;
       case "comboBroken":
-        setFeedback(`Combo of ${e.combo} broken — go deeper to keep it alive.`, "warn");
+        setFeedback(`Combo of ${e.combo} lost. Go deeper to keep it going.`, "warn");
         sfx.comboBreak();
         break;
       case "rankUp":
-        toast(`${e.rank.emoji} Rank up!`, `You're now a ${e.rank.name}.`, "Rank");
+        toast("Rank up", e.rank.name, "Keep going to reach the next rank.");
         renderRank(true);
         break;
       case "achievement":
-        toast(`${e.achievement.icon} ${e.achievement.name}`, e.achievement.desc, game === demoGame ? "Achievement (demo)" : "Achievement unlocked");
+        toast(game === demoGame ? "Achievement · demo" : "Achievement", e.achievement.name, e.achievement.desc);
         sfx.achievement();
         renderAchievements();
         break;
       case "holdStart":
-        setFeedback("Clock is running — hold it!");
+        setFeedback("Clock is running. Hold it.", "good");
         sfx.go();
         break;
       case "holdTick":
         if (e.seconds % 10 === 0) {
-          popup(`${e.seconds}s!`, "hold", { x: 0.5, y: 0.3 });
-          setFeedback(e.seconds >= 30 ? `${e.seconds} seconds — legs of steel! 🧱` : `${e.seconds} seconds — keep breathing, stay low.`);
+          popup(`${e.seconds}s`, "hold", { x: 0.5, y: 0.32 });
+          setFeedback(`${e.seconds} seconds. Stay low and keep breathing.`, "good");
           sfx.multiplier();
         } else {
           sfx.tick();
@@ -427,10 +444,10 @@ function onState(state) {
     showScreen("start");
   } else if (state === "calibrating") {
     showScreen("calibrate");
-    setFeedback("Calibrating — stand tall and still for a second.");
+    setFeedback("Calibrating. Stand tall and still for a second.");
   } else if (state === "countdown") {
     showScreen("countdown");
-    setFeedback("Get ready…");
+    setFeedback("Get ready.");
   } else if (state === "playing") {
     showScreen(null);
   }
@@ -449,7 +466,7 @@ function onState(state) {
 
 function onRep(e) {
   const anchor = lastMeasure?.ok ? lastMeasure.anchor : { x: 0.5, y: 0.5 };
-  const sub = e.multiplier > 1 ? `${e.tier.label} ×${e.multiplier}` : e.tier.label;
+  const sub = e.multiplier > 1 ? `${e.tier.label} ×${e.multiplier.toFixed(1)}` : e.tier.label;
   popup(`+${formatNumber(e.points)}`, e.tier.id, anchor, sub);
   const burst = BURSTS[e.tier.id];
   if (burst) {
@@ -458,21 +475,25 @@ function onRep(e) {
   flash(e.tier.id);
   sfx.rep(e.tier.id);
   const raceShallow = game.mode.id === "race" && e.tier.id === "shallow";
-  setFeedback(raceShallow ? "Too shallow — that one doesn't count toward 20." : REP_MESSAGES[e.tier.id](e), e.tier.id === "shallow" ? "warn" : "good");
+  setFeedback(
+    raceShallow ? "Too shallow. That one doesn't count toward 20." : REP_MESSAGES[e.tier.id](e),
+    e.tier.id === "shallow" ? "warn" : "good"
+  );
   renderStats();
+  renderRank();
   restartAnimation(el.statScore.parentElement, "bump");
 }
 
 function goMessage() {
   switch (game.mode.id) {
     case "blitz":
-      return "GO! Deep reps and long combos score the most.";
+      return "Go. Depth and long combos score the most.";
     case "race":
-      return "GO! 20 good reps — shallow ones don't count.";
+      return "Go. 20 good reps. Shallow ones don't count.";
     case "hold":
-      return "Sink to Good depth or lower and hold it.";
+      return "Get to the hold line on the gauge and stay there.";
     default:
-      return "GO! Squat to depth to start a combo.";
+      return "Go. Squat to depth to start a combo.";
   }
 }
 
@@ -490,22 +511,27 @@ function renderCanvas(dt) {
   particles.draw(ctx);
 }
 
+function currentTier(det) {
+  if (!det.calibrated || !det.tracking || det.flexion < DETECTOR_DEFAULTS.startFlex) return null;
+  return tierFor(det.flexion, settings.difficulty);
+}
+
 function legColor() {
   if (!lastMeasure?.ok) return LOST_LEG;
-  const det = detector.state;
-  if (!det.calibrated || det.flexion < DETECTOR_DEFAULTS.startFlex) return NEUTRAL_LEG;
-  return tierFor(det.flexion, settings.difficulty).color;
+  return currentTier(detector.state)?.color ?? NEUTRAL_LEG;
 }
 
 function renderHud(t) {
   const det = detector.state;
-  el.statAngle.textContent = source && det.tracking && det.angle != null ? `${Math.round(det.angle)}°` : "—";
+  el.statAngle.textContent = source && det.tracking && det.angle != null ? `${Math.round(det.angle)}°` : "–";
 
   if (game.state === "calibrating") {
     el.calibProgress.style.strokeDashoffset = String(RING_CIRCUMFERENCE * (1 - det.calibrationProgress));
+    el.calibPct.textContent = `${Math.round(det.calibrationProgress * 100)}%`;
     el.calibHint.textContent = calibrationHint(det);
     return;
   }
+
   const hud = game.hud(t);
   if (!el.hudTimer.hidden) {
     el.hudTimer.textContent =
@@ -518,61 +544,71 @@ function renderHud(t) {
   }
   if (!el.gauge.hidden) renderGauge(det);
   if (!el.holdPrompt.hidden) {
-    el.holdPrompt.textContent = hud.holding ? "Hold it! Stay at or below the HOLD line" : "Squat to the HOLD line to start the clock";
-    el.holdPrompt.classList.toggle("active", hud.holding);
+    el.holdPrompt.textContent = hud.holding ? "Holding. Stay below the line." : "Squat to the hold line to start";
+    el.holdPrompt.classList.toggle("active", Boolean(hud.holding));
   }
   if (!el.combo.hidden) {
     const combo = game.session.combo;
-    el.comboCount.textContent = String(combo);
     const mult = comboMultiplier(combo);
-    el.comboMult.textContent = `×${mult}`;
-    el.combo.dataset.level = String(mult);
-    const progress = comboProgress(combo);
-    el.comboBarFill.style.width = `${(progress ?? 1) * 100}%`;
+    el.comboCount.textContent = String(combo);
+    el.comboMult.textContent = `×${mult.toFixed(1)}`;
+    el.combo.toggleAttribute("data-hot", mult > 1);
+    el.comboBarFill.style.width = `${(comboProgress(combo) ?? 1) * 100}%`;
   }
 }
 
 function calibrationHint(det) {
-  if (!lastMeasure) return "Waiting for the camera…";
+  if (!lastMeasure) return "Waiting for the camera.";
   if (!lastMeasure.ok) return TRACKING_MESSAGES[lastMeasure.reason] ?? TRACKING_MESSAGES.visibility;
-  if (det.calibrationProgress > 0) return "Hold still…";
+  if (det.calibrationProgress > 0) return "Hold still.";
   return "Straighten your legs and stand tall.";
 }
 
+const gaugePct = (v) => clamp((v / GAUGE_MAX) * 100, 0, 100);
+
 function configureGauge() {
   const th = tierThresholds(settings.difficulty);
-  const pct = (v) => clamp((v / GAUGE_MAX) * 100, 0, 100);
-  const target = game.mode.id === "hold" ? holdThreshold(settings.difficulty) : null;
+  const p = { good: gaugePct(th.good), great: gaugePct(th.great), perfect: gaugePct(th.perfect) };
   el.gaugeTrack.style.background = `linear-gradient(to top,
-    rgba(148, 163, 184, 0.18) 0 ${pct(th.good)}%,
-    rgba(74, 222, 128, 0.22) ${pct(th.good)}% ${pct(th.great)}%,
-    rgba(251, 191, 36, 0.24) ${pct(th.great)}% ${pct(th.perfect)}%,
-    rgba(244, 114, 182, 0.28) ${pct(th.perfect)}% 100%)`;
+    rgba(255, 255, 255, 0.1) 0 ${p.good}%,
+    rgba(91, 156, 255, 0.28) ${p.good}% ${p.great}%,
+    rgba(62, 224, 165, 0.3) ${p.great}% ${p.perfect}%,
+    rgba(212, 255, 58, 0.34) ${p.perfect}% 100%)`;
+
+  el.gaugeTicks.replaceChildren(
+    ...Object.values(p).map((bottom) => {
+      const tick = document.createElement("div");
+      tick.className = "gauge-tick";
+      tick.style.bottom = `${bottom}%`;
+      return tick;
+    })
+  );
+
+  const hold = game.mode.id === "hold";
   const labels = [
-    ["PERFECT", th.perfect, "perfect"],
-    ["GREAT", th.great, "great"],
-    [target != null ? "HOLD" : "GOOD", th.good, "good"],
+    ["perfect", "Perfect", th.perfect],
+    ["great", "Great", th.great],
+    ["good", hold ? "Hold" : "Good", th.good],
   ];
   el.gaugeLabels.replaceChildren(
-    ...labels.map(([text, value, tier]) => {
-      const span = document.createElement("span");
-      span.className = `gauge-label c-${tier}`;
-      span.textContent = text;
-      span.style.bottom = `${pct(value)}%`;
-      return span;
+    ...labels.map(([tier, text, value]) => {
+      const label = span("gauge-label", text);
+      label.dataset.tier = tier;
+      label.style.bottom = `${gaugePct(value)}%`;
+      return label;
     })
   );
 }
 
 function renderGauge(det) {
-  const pct = clamp((det.flexion / GAUGE_MAX) * 100, 0, 100);
-  el.gaugeFill.style.height = `${det.tracking ? pct : 0}%`;
-  const color = det.flexion < DETECTOR_DEFAULTS.startFlex ? NEUTRAL_LEG : tierFor(det.flexion, settings.difficulty).color;
-  el.gaugeFill.style.background = color;
-  el.gaugeFill.style.color = color;
-  const max = det.repMaxFlexion;
-  el.gaugeMax.hidden = !(det.phase === "down" && max > 0);
-  el.gaugeMax.style.bottom = `${clamp((max / GAUGE_MAX) * 100, 0, 100)}%`;
+  const tier = currentTier(det);
+  el.gaugeFill.style.height = `${det.tracking ? gaugePct(det.flexion) : 0}%`;
+  el.gaugeFill.style.background = tier?.color ?? NEUTRAL_LEG;
+  el.gaugeMax.hidden = !(det.phase === "down" && det.repMaxFlexion > 0);
+  el.gaugeMax.style.bottom = `${gaugePct(det.repMaxFlexion)}%`;
+  for (const label of el.gaugeLabels.children) {
+    label.classList.toggle("active", label.dataset.tier === tier?.id);
+  }
 }
 
 function renderStats() {
@@ -597,27 +633,21 @@ function renderControls() {
 function renderModes() {
   el.modeList.replaceChildren(
     ...Object.values(MODES).map((mode) => {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "mode-card";
-      btn.dataset.mode = mode.id;
-      btn.setAttribute("aria-pressed", String(mode.id === settings.mode));
-      btn.disabled = game.active && mode.id !== settings.mode;
+      const tab = document.createElement("button");
+      tab.type = "button";
+      tab.className = "mode-tab";
+      tab.setAttribute("role", "tab");
+      tab.setAttribute("aria-selected", String(mode.id === settings.mode));
+      tab.disabled = game.active && mode.id !== settings.mode;
+
+      const top = document.createElement("span");
+      top.className = "mode-tab-top";
+      top.append(icon(mode.icon), document.createTextNode(mode.name));
       const best = game.boards[mode.id][0];
-      const parts = [
-        ["mode-icon", mode.icon],
-        ["mode-name", mode.name],
-        ["mode-short", mode.short],
-        ["mode-best", best ? `Best: ${formatBoardValue(mode, best.value)}` : "No record yet"],
-      ];
-      for (const [cls, text] of parts) {
-        const span = document.createElement("span");
-        span.className = cls;
-        span.textContent = text;
-        btn.append(span);
-      }
-      btn.addEventListener("click", () => selectMode(mode.id));
-      return btn;
+      const meta = span("mode-tab-meta", best ? `Best ${formatBoardValue(mode, best.value)}` : mode.short);
+      tab.append(top, meta);
+      tab.addEventListener("click", () => selectMode(mode.id));
+      return tab;
     })
   );
 }
@@ -629,7 +659,7 @@ function renderBoard() {
   if (!list.length) {
     const li = document.createElement("li");
     li.className = "board-empty";
-    li.textContent = "No runs yet — set the first record!";
+    li.textContent = "No runs yet.";
     el.board.replaceChildren(li);
     return;
   }
@@ -637,14 +667,11 @@ function renderBoard() {
     ...list.map((entry) => {
       const li = document.createElement("li");
       li.classList.toggle("latest", entry.id === game.lastEntryId);
-      const value = document.createElement("span");
-      value.className = "board-value";
-      value.textContent = formatBoardValue(mode, entry.value);
-      const meta = document.createElement("span");
-      meta.className = "board-meta";
       const date = new Date(entry.date).toLocaleDateString(undefined, { month: "short", day: "numeric" });
-      meta.textContent = `${DIFFICULTIES[entry.difficulty]?.label ?? ""} · ${date}`;
-      li.append(value, meta);
+      li.append(
+        span("board-value", formatBoardValue(mode, entry.value)),
+        span("board-meta", `${DIFFICULTIES[entry.difficulty]?.label ?? ""} · ${date}`)
+      );
       return li;
     })
   );
@@ -653,17 +680,11 @@ function renderBoard() {
 function renderAchievements() {
   el.achievements.replaceChildren(
     ...ACHIEVEMENTS.map((a) => {
-      const li = document.createElement("li");
       const unlocked = game.unlocked.has(a.id);
+      const li = document.createElement("li");
       li.className = `ach${unlocked ? " unlocked" : ""}`;
-      li.title = `${a.name} — ${a.desc}${unlocked ? "" : " (locked)"}`;
-      const icon = document.createElement("span");
-      icon.className = "ach-icon";
-      icon.textContent = a.icon;
-      const name = document.createElement("span");
-      name.className = "ach-name";
-      name.textContent = a.name;
-      li.append(icon, name);
+      li.title = `${a.name}: ${a.desc}${unlocked ? "" : " (locked)"}`;
+      li.append(icon(unlocked ? "check" : "lock"), span("", a.name));
       return li;
     })
   );
@@ -672,13 +693,13 @@ function renderAchievements() {
 
 function renderRank(celebrate = false) {
   const info = rankInfo(game.lifetime.totalReps);
-  el.rankEmoji.textContent = info.rank.emoji;
   el.rankName.textContent = info.rank.name;
   el.rankBarFill.style.width = `${info.progress * 100}%`;
-  el.rankNext.textContent = info.next
-    ? `${info.toNext} squat${info.toNext === 1 ? "" : "s"} to ${info.next.emoji} ${info.next.name}`
-    : "Max rank — legendary.";
-  if (celebrate) restartAnimation(el.rankChip, "bump");
+  el.rankNext.textContent = info.next ? `${game.lifetime.totalReps} / ${info.next.min}` : "Max";
+  if (celebrate) {
+    el.rank.classList.add("up");
+    setTimeout(() => el.rank.classList.remove("up"), 2000);
+  }
 }
 
 function renderDifficulty() {
@@ -702,6 +723,12 @@ function renderDifficulty() {
   el.difficultyHint.textContent = DIFFICULTIES[settings.difficulty].hint;
 }
 
+function renderSound() {
+  el.soundBtn.replaceChildren(icon(settings.sound ? "volume" : "mute"));
+  el.soundBtn.setAttribute("aria-pressed", String(settings.sound));
+  el.soundBtn.setAttribute("aria-label", settings.sound ? "Mute sound" : "Unmute sound");
+}
+
 function renderPanel() {
   renderStats();
   renderModes();
@@ -714,11 +741,11 @@ function renderPanel() {
 
 function updateStartScreen() {
   const mode = MODES[settings.mode];
-  el.startIcon.textContent = mode.icon;
+  el.startIcon.replaceChildren(icon(mode.icon));
   el.startTitle.textContent = mode.name;
   el.startDesc.textContent = mode.desc;
-  el.startPlay.textContent = source === "demo" ? "Run the demo" : source === "camera" ? "Play" : "Start camera & play";
-  el.startAlt.textContent = source === "demo" ? "Use my camera instead" : "No camera? Watch a demo run";
+  el.startPlay.textContent = source === "demo" ? "Run the demo" : source === "camera" ? "Play" : "Start camera";
+  el.startAlt.textContent = source === "demo" ? "Use my camera instead" : "Or watch a demo run";
   el.startAlt.hidden = source === "camera";
 }
 
@@ -730,14 +757,14 @@ function showError(stage, err) {
   const messages = {
     NotAllowedError: "Camera access was blocked. Allow it in your browser's site settings, then try again.",
     NotFoundError: "No camera was found on this device.",
-    NotReadableError: "Your camera is busy — close other apps or tabs using it, then try again.",
+    NotReadableError: "Your camera is in use by another app or tab. Close it and try again.",
     OverconstrainedError: "Your camera doesn't support the requested settings.",
     SecurityError: "Camera access needs a secure (https) page.",
   };
   el.errorTitle.textContent = stage === "model" ? "Couldn't load the pose model" : "Camera unavailable";
   el.errorText.textContent =
     stage === "model"
-      ? "Check your internet connection and try again — the model downloads the first time you play."
+      ? "Check your internet connection and try again. The model downloads the first time you play."
       : messages[err?.name] ?? `Something went wrong starting the camera (${err?.message ?? "unknown error"}).`;
   showScreen("error");
   renderControls();
@@ -746,39 +773,39 @@ function showError(stage, err) {
 function showResults(r) {
   const titles = {
     free: "Session complete",
-    blitz: "Time's up!",
-    race: r.completed ? "Race finished!" : "Race abandoned",
-    hold: "Hold broken!",
+    blitz: "Time",
+    race: r.completed ? "Race finished" : "Race ended early",
+    hold: "Hold ended",
   };
-  el.resTitle.textContent = titles[r.mode];
-  el.resGrade.textContent = r.grade ?? (r.mode === "race" && !r.completed ? "DNF" : "—");
+  el.resTitle.textContent = `${MODES[r.mode].name} · ${titles[r.mode]}`;
+  el.resGrade.textContent = r.grade ?? (r.mode === "race" && !r.completed ? "DNF" : "–");
   el.resGrade.dataset.grade = r.grade ?? "none";
-  el.resBest.hidden = !r.newBest;
 
   if (r.mode === "race") {
-    el.resMain.textContent = r.completed ? formatTime(r.timeMs, { tenths: true }) : `${r.goodReps}/${MODES.race.targetReps} reps`;
+    el.resMain.textContent = r.completed ? formatTime(r.timeMs, { tenths: true }) : `${r.goodReps}/${MODES.race.targetReps}`;
   } else if (r.mode === "hold") {
     el.resMain.textContent = formatTime(r.holdMs, { tenths: true });
   } else {
     el.resMain.textContent = `${formatNumber(r.score)} pts`;
   }
 
-  if (r.newBest) el.resSub.textContent = "A new personal best!";
+  el.resSub.classList.toggle("best", r.newBest);
+  if (r.newBest) el.resSub.textContent = "Personal best";
   else if (r.boardRank) el.resSub.textContent = `#${r.boardRank} on your leaderboard`;
-  else if (r.mode === "free" && r.reps < 5) el.resSub.textContent = "Do at least 5 reps to earn a grade.";
+  else if (r.mode === "free" && r.reps < 5) el.resSub.textContent = "Do at least 5 reps to get a grade";
   else el.resSub.textContent = "";
 
   const rows =
     r.mode === "hold"
       ? [
           ["Difficulty", DIFFICULTIES[r.difficulty].label],
-          ["Personal best", game.boards.hold[0] ? formatBoardValue(MODES.hold, game.boards.hold[0].value) : "—"],
+          ["Best", game.boards.hold[0] ? formatBoardValue(MODES.hold, game.boards.hold[0].value) : "–"],
         ]
       : [
           ["Reps", String(r.reps)],
           ["Perfect", String(r.tiers.perfect)],
           ["Max combo", String(r.maxCombo)],
-          ["Avg depth", r.avgAngle != null ? `${Math.round(r.avgAngle)}°` : "—"],
+          ["Avg depth", r.avgAngle != null ? `${Math.round(r.avgAngle)}°` : "–"],
         ];
   el.resStats.replaceChildren(
     ...rows.map(([label, value]) => {
@@ -813,16 +840,8 @@ function setFeedback(text, tone = "") {
 function popup(text, kind, anchor, sub) {
   const node = document.createElement("div");
   node.className = `popup popup-${kind}`;
-  const main = document.createElement("span");
-  main.className = "popup-main";
-  main.textContent = text;
-  node.append(main);
-  if (sub) {
-    const s = document.createElement("span");
-    s.className = "popup-sub";
-    s.textContent = sub;
-    node.append(s);
-  }
+  node.append(span("popup-main", text));
+  if (sub) node.append(span("popup-sub", sub));
   // The video is mirrored, so flip x to line up with the player on screen.
   node.style.left = `${clamp(1 - anchor.x, 0.18, 0.82) * 100}%`;
   node.style.top = `${clamp(anchor.y, 0.2, 0.8) * 100}%`;
@@ -841,17 +860,12 @@ function restartAnimation(node, cls = "animate") {
   node.classList.add(cls);
 }
 
-function toast(title, body, kicker) {
+function toast(kicker, title, body) {
   const node = document.createElement("div");
   node.className = "toast";
-  const k = document.createElement("span");
-  k.className = "toast-kicker";
-  k.textContent = kicker;
   const strong = document.createElement("strong");
   strong.textContent = title;
-  const p = document.createElement("span");
-  p.textContent = body;
-  node.append(k, strong, p);
+  node.append(span("toast-kicker", kicker), strong, span("", body));
   el.toasts.append(node);
   setTimeout(() => {
     node.classList.add("out");
@@ -895,7 +909,7 @@ el.modelSelect.value = settings.model;
 el.modelSelect.addEventListener("change", () => {
   settings.model = el.modelSelect.value;
   saveSettings();
-  if (source === "camera") setFeedback("New tracking model loads when you start the next run.");
+  if (source === "camera") setFeedback("The new tracking model loads when you start the next run.");
 });
 
 el.resetProgress.addEventListener("click", () => {
@@ -903,7 +917,7 @@ el.resetProgress.addEventListener("click", () => {
   if (!confirm("Reset your leaderboards, achievements and rank on this device?")) return;
   game.resetProgress();
   renderPanel();
-  setFeedback("Progress reset. Fresh start!");
+  setFeedback("Progress reset.");
 });
 
 document.addEventListener("keydown", (e) => {
@@ -917,12 +931,6 @@ document.addEventListener("keydown", (e) => {
     endRun();
   }
 });
-
-function renderSound() {
-  el.soundBtn.textContent = settings.sound ? "🔊" : "🔇";
-  el.soundBtn.setAttribute("aria-pressed", String(settings.sound));
-  el.soundBtn.setAttribute("aria-label", settings.sound ? "Sound on" : "Sound off");
-}
 
 renderSound();
 renderDifficulty();

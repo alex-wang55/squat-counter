@@ -3,39 +3,46 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<title>Squat Quest</title>
-<meta name="description" content="A squat game in your browser. Real-time pose tracking scores every rep — your video never leaves your device." />
-<meta name="theme-color" content="#0b0d12" />
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8F%8B%EF%B8%8F%3C/text%3E%3C/svg%3E" />
+<title>Depth · Squat game</title>
+<meta name="description" content="A squat game in your browser. Pose tracking scores every rep by depth, and your video never leaves your device." />
+<meta name="theme-color" content="#0a0a0a" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23d4ff3a'/%3E%3Cpath d='M10.5 8.5h5a7.5 7.5 0 0 1 0 15h-5z' fill='none' stroke='%230a0a0a' stroke-width='3' stroke-linejoin='round'/%3E%3C/svg%3E" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;800;900&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+<svg class="sprite" aria-hidden="true">
+  <symbol id="i-infinity" viewBox="0 0 24 24"><path d="M12 12c-2-2.67-4-4-6-4a4 4 0 1 0 0 8c2 0 4-1.33 6-4Zm0 0c2 2.67 4 4 6 4a4 4 0 0 0 0-8c-2 0-4 1.33-6 4Z" /></symbol>
+  <symbol id="i-timer" viewBox="0 0 24 24"><path d="M10 2h4M12 14l3-3" /><circle cx="12" cy="14" r="8" /></symbol>
+  <symbol id="i-flag" viewBox="0 0 24 24"><path d="M4 22v-7M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /></symbol>
+  <symbol id="i-hourglass" viewBox="0 0 24 24"><path d="M5 22h14M5 2h14M17 22v-4.17a2 2 0 0 0-.59-1.42L12 12l-4.41 4.41A2 2 0 0 0 7 17.83V22M7 2v4.17a2 2 0 0 0 .59 1.42L12 12l4.41-4.41A2 2 0 0 0 17 6.17V2" /></symbol>
+  <symbol id="i-volume" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4V5zM15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14" /></symbol>
+  <symbol id="i-mute" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4V5zM22 9l-6 6M16 9l6 6" /></symbol>
+  <symbol id="i-camera-off" viewBox="0 0 24 24"><path d="m2 2 20 20M10.66 6H14a2 2 0 0 1 2 2v2.34l1 1L22 8v8M16 16a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2" /></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" /></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></symbol>
+</svg>
+
 <div class="app">
   <header class="topbar">
     <div class="brand">
-      <div class="brand-mark" aria-hidden="true">🏋️</div>
-      <div>
-        <h1>Squat <span>Quest</span></h1>
-        <p class="tagline">Pose tracking turns every squat into points. Your video never leaves your device.</p>
-      </div>
+      <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" /><path d="M10.5 8.5h5a7.5 7.5 0 0 1 0 15h-5z" /></svg>
+      <span class="brand-name">Depth</span>
+      <span class="brand-tag">Squat game</span>
     </div>
     <div class="topbar-right">
-      <div class="rank-chip" id="rank-chip" title="Your rank grows with lifetime squats">
-        <span class="rank-emoji" id="rank-emoji">🐣</span>
-        <span class="rank-text">
-          <span class="rank-name" id="rank-name">Newbie</span>
-          <span class="rank-bar"><span class="rank-bar-fill" id="rank-bar-fill"></span></span>
-          <span class="rank-next" id="rank-next"></span>
-        </span>
+      <div class="rank" id="rank" title="Your rank grows with lifetime reps">
+        <span class="rank-name" id="rank-name">Newbie</span>
+        <span class="rank-next" id="rank-next">0 / 10</span>
+        <span class="rank-bar"><span id="rank-bar-fill"></span></span>
       </div>
-      <button type="button" class="icon-btn" id="sound-btn" aria-pressed="true" aria-label="Sound on">🔊</button>
+      <button type="button" class="icon-btn" id="sound-btn" aria-pressed="true" aria-label="Mute sound"></button>
     </div>
   </header>
 
-  <nav class="modes" id="mode-list" aria-label="Game mode"></nav>
+  <nav class="modes" id="mode-list" role="tablist" aria-label="Game mode"></nav>
 
   <main class="layout">
     <section class="stage-col">
@@ -44,61 +51,63 @@
         <canvas id="overlay" width="640" height="480"></canvas>
 
         <div class="hud">
-          <div class="hud-top">
-            <span class="hud-chip" id="hud-mode">Free Play</span>
-            <span class="hud-timer" id="hud-timer" hidden>0:00</span>
-            <span class="hud-chip hud-progress" id="hud-progress" hidden>0/20</span>
-          </div>
-          <span class="hud-chip hud-demo" id="hud-demo" hidden>Demo<span class="hud-demo-long"> · simulated player</span></span>
+          <span class="chip hud-mode" id="hud-mode">Free play</span>
+          <span class="hud-timer" id="hud-timer" hidden>0:00</span>
+          <span class="chip hud-progress" id="hud-progress" hidden>0/20</span>
+          <span class="chip hud-demo" id="hud-demo" hidden>Demo<span class="hud-demo-long"> · simulated player</span></span>
 
           <div class="combo" id="combo" hidden>
-            <div class="combo-num"><span id="combo-count">0</span><small>combo</small></div>
-            <div class="combo-mult" id="combo-mult">×1</div>
+            <div class="combo-row"><span class="combo-label">Combo</span><span class="combo-mult" id="combo-mult">×1.0</span></div>
+            <div class="combo-count" id="combo-count">0</div>
             <div class="combo-bar"><span id="combo-bar-fill"></span></div>
           </div>
 
           <div class="gauge" id="gauge" hidden aria-hidden="true">
             <div class="gauge-labels" id="gauge-labels"></div>
             <div class="gauge-track" id="gauge-track">
+              <div class="gauge-ticks" id="gauge-ticks"></div>
               <div class="gauge-fill" id="gauge-fill"></div>
               <div class="gauge-max" id="gauge-max"></div>
             </div>
           </div>
 
-          <div class="hold-prompt" id="hold-prompt" hidden>Squat to Good depth to start the clock</div>
-
-          <div class="go-banner" id="go-banner" hidden>GO!</div>
+          <div class="chip hold-prompt" id="hold-prompt" hidden>Squat to the hold line to start the clock</div>
+          <div class="go-banner" id="go-banner" hidden>Go</div>
           <div class="popup-layer" id="popup-layer"></div>
         </div>
 
         <div class="screen" id="screen-start">
           <div class="screen-card">
-            <div class="screen-icon" id="start-icon">🎯</div>
-            <h2 id="start-title">Free Play</h2>
+            <span class="screen-icon" id="start-icon"></span>
+            <h2 id="start-title">Free play</h2>
             <p id="start-desc"></p>
-            <button type="button" class="btn primary big" id="start-play">Start camera &amp; play</button>
-            <button type="button" class="link-btn" id="start-alt">No camera? Watch a demo run</button>
-            <p class="fine">Stand side-on, 2–3 m back, so your whole body is in view.</p>
+            <button type="button" class="btn primary big" id="start-play">Start camera</button>
+            <button type="button" class="link-btn" id="start-alt">Or watch a demo run</button>
+            <p class="fine">Stand side-on, 2–3 m back, whole body in frame</p>
           </div>
         </div>
 
         <div class="screen" id="screen-loading" hidden>
-          <div class="screen-card compact">
+          <div class="screen-card">
             <div class="spinner"></div>
-            <p id="loading-text">Loading pose model…</p>
+            <p id="loading-text">Loading pose model</p>
           </div>
         </div>
 
         <div class="screen screen-calibrate" id="screen-calibrate" hidden>
-          <div class="calib">
-            <svg class="calib-ring" viewBox="0 0 100 100" aria-hidden="true">
-              <circle class="calib-track" cx="50" cy="50" r="44" />
-              <circle class="calib-progress" id="calib-progress" cx="50" cy="50" r="44" />
-            </svg>
-            <span class="calib-emoji">🧍</span>
+          <div class="calib-card">
+            <div class="calib">
+              <svg class="calib-ring" viewBox="0 0 100 100" aria-hidden="true">
+                <circle class="calib-track" cx="50" cy="50" r="44" />
+                <circle class="calib-progress" id="calib-progress" cx="50" cy="50" r="44" />
+              </svg>
+              <span class="calib-pct" id="calib-pct">0%</span>
+            </div>
+            <div class="calib-text">
+              <h2>Stand tall</h2>
+              <p id="calib-hint">Whole body in view, side-on to the camera.</p>
+            </div>
           </div>
-          <h2>Stand tall</h2>
-          <p id="calib-hint">Whole body in view, side-on to the camera.</p>
         </div>
 
         <div class="screen screen-countdown" id="screen-countdown" hidden>
@@ -107,11 +116,14 @@
 
         <div class="screen" id="screen-results" hidden>
           <div class="screen-card results">
-            <div class="ribbon" id="res-best" hidden>New best!</div>
-            <div class="grade" id="res-grade">A</div>
-            <h2 id="res-title">Time's up!</h2>
-            <div class="res-main" id="res-main">0 pts</div>
-            <p class="res-sub" id="res-sub"></p>
+            <span class="eyebrow" id="res-title">Result</span>
+            <div class="res-head">
+              <div class="grade" id="res-grade">A</div>
+              <div class="res-figures">
+                <div class="res-main" id="res-main">0</div>
+                <div class="res-sub" id="res-sub"></div>
+              </div>
+            </div>
             <dl class="res-stats" id="res-stats"></dl>
             <div class="tier-bar" id="res-tierbar"></div>
             <div class="res-actions">
@@ -123,7 +135,7 @@
 
         <div class="screen" id="screen-error" hidden>
           <div class="screen-card">
-            <div class="screen-icon">📷</div>
+            <span class="screen-icon danger"><svg class="icon"><use href="#i-camera-off" /></svg></span>
             <h2 id="error-title">Camera unavailable</h2>
             <p id="error-text"></p>
             <button type="button" class="btn primary" id="error-retry">Try again</button>
@@ -132,23 +144,24 @@
         </div>
       </div>
 
-      <div class="feedback" id="feedback" role="status">Pick a mode, then hit Play.</div>
+      <div class="feedback" id="feedback" role="status">Pick a mode, then press Play.</div>
     </section>
 
     <aside class="panel">
-      <div class="stats">
-        <div class="stat"><span class="stat-label">Score</span><span class="stat-value score" id="stat-score">0</span></div>
-        <div class="stat"><span class="stat-label">Reps</span><span class="stat-value" id="stat-reps">0</span></div>
-        <div class="stat"><span class="stat-label">Best combo</span><span class="stat-value" id="stat-combo">0</span></div>
-        <div class="stat"><span class="stat-label">Knee angle</span><span class="stat-value" id="stat-angle">—</span></div>
-      </div>
-
-      <div class="tiers">
-        <div class="tier-count perfect"><b id="tier-perfect">0</b><small>Perfect</small></div>
-        <div class="tier-count great"><b id="tier-great">0</b><small>Great</small></div>
-        <div class="tier-count good"><b id="tier-good">0</b><small>Good</small></div>
-        <div class="tier-count shallow"><b id="tier-shallow">0</b><small>Shallow</small></div>
-      </div>
+      <section>
+        <dl class="stats">
+          <div><dt>Score</dt><dd class="score" id="stat-score">0</dd></div>
+          <div><dt>Reps</dt><dd id="stat-reps">0</dd></div>
+          <div><dt>Best combo</dt><dd id="stat-combo">0</dd></div>
+          <div><dt>Knee angle</dt><dd id="stat-angle">–</dd></div>
+        </dl>
+        <ul class="tiers">
+          <li data-tier="perfect">Perfect<b id="tier-perfect">0</b></li>
+          <li data-tier="great">Great<b id="tier-great">0</b></li>
+          <li data-tier="good">Good<b id="tier-good">0</b></li>
+          <li data-tier="shallow">Shallow<b id="tier-shallow">0</b></li>
+        </ul>
+      </section>
 
       <div class="controls">
         <button type="button" class="btn primary" id="play-btn">Play</button>
@@ -156,18 +169,18 @@
         <button type="button" class="btn ghost" id="source-btn" disabled>Stop camera</button>
       </div>
 
-      <section class="card">
-        <h2 class="card-title">Leaderboard <span class="card-sub" id="board-mode">Free Play</span></h2>
+      <section class="block">
+        <header class="block-head"><h2>Leaderboard</h2><span id="board-mode">Free play</span></header>
         <ol class="board" id="board"></ol>
       </section>
 
-      <section class="card">
-        <h2 class="card-title">Achievements <span class="card-sub" id="ach-count">0/12</span></h2>
+      <section class="block">
+        <header class="block-head"><h2>Achievements</h2><span id="ach-count">0/12</span></header>
         <ul class="achievements" id="achievements"></ul>
       </section>
 
-      <details class="card">
-        <summary class="card-title">Settings</summary>
+      <details class="block">
+        <summary class="block-head"><h2>Settings</h2></summary>
         <div class="setting">
           <span class="setting-label" id="difficulty-label">Depth difficulty</span>
           <div class="segmented" id="difficulty" role="radiogroup" aria-labelledby="difficulty-label"></div>
@@ -183,13 +196,13 @@
         <button type="button" class="link-btn danger" id="reset-progress">Reset all progress</button>
       </details>
 
-      <details class="card">
-        <summary class="card-title">How scoring works</summary>
+      <details class="block">
+        <summary class="block-head"><h2>How scoring works</h2></summary>
         <ul class="howto">
-          <li><b class="c-perfect">Perfect</b> 100 · <b class="c-great">Great</b> 70 · <b class="c-good">Good</b> 50 · <b class="c-shallow">Shallow</b> 10 points, based on how deep you go.</li>
-          <li>Chain Good-or-better reps to grow your <b>combo multiplier</b>: ×1.5 at 5, ×2 at 10, ×2.5 at 15, ×3 at 20. A shallow rep breaks the combo.</li>
-          <li>Every run starts with a one-second calibration: stand tall so the game learns your straight-leg position. Depth is measured from there.</li>
-          <li>Keyboard: <kbd>Space</kbd> to play, <kbd>Esc</kbd> to end a run.</li>
+          <li>Each rep scores by depth: <b data-tier="perfect">Perfect</b> 100, <b data-tier="great">Great</b> 70, <b data-tier="good">Good</b> 50, <b data-tier="shallow">Shallow</b> 10.</li>
+          <li>Good-or-better reps in a row build a combo multiplier: ×1.5 at 5, ×2 at 10, ×2.5 at 15, ×3 at 20. A shallow rep resets it.</li>
+          <li>Each run starts with a one-second calibration. Stand tall so the game learns your straight-leg position. Depth is measured from there.</li>
+          <li><kbd>Space</kbd> plays, <kbd>Esc</kbd> ends a run.</li>
         </ul>
       </details>
     </aside>

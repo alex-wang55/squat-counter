@@ -1,4 +1,4 @@
-# Squat Quest
+# Depth
 
 A squat game that runs entirely in the browser. [MediaPipe Pose Landmarker](https://ai.google.dev/edge/mediapipe/solutions/vision/pose_landmarker) tracks your body through the webcam, and every rep is scored by depth. No video ever leaves your device.
 
@@ -8,10 +8,10 @@ No camera? Hit **Watch a demo run** for a simulated player that goes through the
 
 | Mode | Goal |
 | --- | --- |
-| 🎯 **Free Play** | Endless reps. Chain good-depth squats to build a combo multiplier. |
-| ⚡ **Blitz** | 60 seconds. Score as many points as you can. |
-| 🏁 **20-Rep Race** | 20 Good-or-better reps as fast as possible. Shallow reps don't count. |
-| 🧱 **Squat Hold** | Hold Good depth or lower for as long as you can. |
+| **Free play** | Endless reps. Chain good-depth squats to build a combo multiplier. |
+| **Blitz** | 60 seconds. Score as many points as you can. |
+| **Race** | 20 Good-or-better reps as fast as possible. Shallow reps don't count. |
+| **Hold** | Hold Good depth or lower for as long as you can. |
 
 Each rep is graded **Perfect / Great / Good / Shallow** by depth. Consecutive good reps grow a combo multiplier (×1.5 at 5, up to ×3 at 20); a shallow rep breaks it. There are also letter grades, per-mode leaderboards, 12 achievements, and a rank that grows with your lifetime squats. Progress is saved in your browser.
 

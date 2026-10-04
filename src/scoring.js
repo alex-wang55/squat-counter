@@ -1,17 +1,18 @@
 // Depth tiers are measured as knee flexion past your calibrated standing angle.
 // With a typical standing reading of ~172°, Perfect lands around 72° (thighs at
 // or below parallel), Great around 87°, Good around 107° (a solid half squat).
+// Colors run cool to bright as depth increases, ending on the accent color.
 export const TIERS = Object.freeze([
-  { id: "perfect", label: "PERFECT", minFlex: 100, points: 100, color: "#f472b6" },
-  { id: "great", label: "GREAT", minFlex: 85, points: 70, color: "#fbbf24" },
-  { id: "good", label: "GOOD", minFlex: 65, points: 50, color: "#4ade80" },
-  { id: "shallow", label: "TOO SHALLOW", minFlex: -Infinity, points: 10, color: "#94a3b8" },
+  { id: "perfect", label: "Perfect", minFlex: 100, points: 100, color: "#d4ff3a" },
+  { id: "great", label: "Great", minFlex: 85, points: 70, color: "#3ee0a5" },
+  { id: "good", label: "Good", minFlex: 65, points: 50, color: "#5b9cff" },
+  { id: "shallow", label: "Shallow", minFlex: -Infinity, points: 10, color: "#737373" },
 ]);
 
 export const DIFFICULTIES = Object.freeze({
-  easy: { id: "easy", label: "Easy", offset: -12, hint: "Shallower depth targets — good for warming up or limited mobility." },
+  easy: { id: "easy", label: "Easy", offset: -12, hint: "Shallower depth targets. Good for warming up or limited mobility." },
   normal: { id: "normal", label: "Normal", offset: 0, hint: "Perfect means thighs at or just below parallel." },
-  hard: { id: "hard", label: "Hard", offset: 8, hint: "Perfect means a deep, well-below-parallel squat." },
+  hard: { id: "hard", label: "Hard", offset: 8, hint: "Perfect means a deep squat, well below parallel." },
 });
 
 function offsetFor(difficulty) {
@@ -56,12 +57,12 @@ export function comboProgress(combo) {
 }
 
 export const RANKS = Object.freeze([
-  { min: 0, emoji: "🐣", name: "Newbie" },
-  { min: 10, emoji: "🏋️", name: "Rookie" },
-  { min: 50, emoji: "💪", name: "Regular" },
-  { min: 150, emoji: "⚙️", name: "Machine" },
-  { min: 400, emoji: "🦾", name: "Titan" },
-  { min: 1000, emoji: "👑", name: "Legend" },
+  { min: 0, name: "Newbie" },
+  { min: 10, name: "Rookie" },
+  { min: 50, name: "Regular" },
+  { min: 150, name: "Machine" },
+  { min: 400, name: "Titan" },
+  { min: 1000, name: "Legend" },
 ]);
 
 export function rankInfo(totalReps) {
