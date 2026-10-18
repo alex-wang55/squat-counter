@@ -3,6 +3,7 @@ export class Sfx {
   constructor() {
     this.ctx = null;
     this.master = null;
+    this.noise = null;
     this.muted = false;
   }
 
@@ -39,12 +40,46 @@ export class Sfx {
     freqs.forEach((f, i) => this.#tone(f, { ...opts, at: (opts.at ?? 0) + i * step }));
   }
 
+  // Punchy sub-bass thump for big hits.
+  #kick({ at = 0, vol = 0.5 } = {}) {
+    this.#tone(160, { at, dur: 0.28, type: "sine", vol, to: 42 });
+  }
+
+  // Filtered noise sweep, the "whoosh" under risers and the Go banner.
+  #whoosh({ at = 0, dur = 0.45, vol = 0.12, from = 300, to = 5000 } = {}) {
+    if (this.muted || !this.ctx) return;
+    if (!this.noise) {
+      const len = this.ctx.sampleRate;
+      this.noise = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+      const data = this.noise.getChannelData(0);
+      for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+    }
+    const t0 = this.ctx.currentTime + at;
+    const src = this.ctx.createBufferSource();
+    src.buffer = this.noise;
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = "bandpass";
+    filter.Q.value = 1.4;
+    filter.frequency.setValueAtTime(from, t0);
+    filter.frequency.exponentialRampToValueAtTime(to, t0 + dur);
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, t0);
+    gain.gain.exponentialRampToValueAtTime(vol, t0 + dur * 0.7);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    src.connect(filter).connect(gain).connect(this.master);
+    src.start(t0);
+    src.stop(t0 + dur + 0.05);
+  }
+
   rep(tierId) {
     switch (tierId) {
       case "perfect":
+        this.#kick({ vol: 0.55 });
         this.#arpeggio([523, 659, 784, 1047, 1319], 0.05, { dur: 0.2, type: "triangle", vol: 0.22 });
+        this.#tone(2093, { at: 0.25, dur: 0.5, type: "sine", vol: 0.07 });
         break;
       case "great":
+        this.#kick({ vol: 0.3 });
         this.#arpeggio([659, 880, 1175], 0.06, { dur: 0.18, type: "triangle", vol: 0.22 });
         break;
       case "good":
@@ -56,7 +91,9 @@ export class Sfx {
   }
 
   multiplier() {
+    this.#whoosh({ dur: 0.35, vol: 0.1 });
     this.#tone(330, { dur: 0.35, type: "sawtooth", vol: 0.07, to: 1320 });
+    this.#kick({ at: 0.3, vol: 0.5 });
     this.#arpeggio([1047, 1319, 1568], 0.07, { at: 0.25, dur: 0.18, type: "triangle", vol: 0.18 });
   }
 
@@ -69,6 +106,8 @@ export class Sfx {
   }
 
   go() {
+    this.#whoosh({ dur: 0.3, vol: 0.1, from: 600, to: 6000 });
+    this.#kick({ vol: 0.45 });
     this.#arpeggio([659, 880], 0.08, { dur: 0.3, type: "square", vol: 0.09 });
   }
 
@@ -81,6 +120,7 @@ export class Sfx {
   }
 
   finish() {
+    this.#kick({ at: 0.4, vol: 0.45 });
     this.#arpeggio([523, 659, 784], 0.12, { dur: 0.22, type: "square", vol: 0.08 });
     this.#tone(1047, { at: 0.4, dur: 0.6, type: "triangle", vol: 0.2 });
   }
