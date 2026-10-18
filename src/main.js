@@ -5,7 +5,7 @@ import { ACHIEVEMENTS } from "./achievements.js";
 import { TIERS, DIFFICULTIES, tierFor, tierThresholds, holdThreshold, comboMultiplier, comboProgress, rankInfo } from "./scoring.js";
 import { createStore, memoryBackend } from "./storage.js";
 import { Sfx } from "./audio.js";
-import { Particles, drawSkeleton, drawDemoBackdrop, drawTrails, drawKneeArc, drawFloorGlow } from "./render.js";
+import { Rings, drawSkeleton, drawDemoBackdrop, drawKneeArc } from "./render.js";
 import { DemoSource } from "./demo.js";
 import { formatTime, formatNumber, formatBoardValue } from "./format.js";
 
@@ -15,7 +15,6 @@ const el = {
   stage: $("stage"),
   video: $("video"),
   canvas: $("overlay"),
-  fx: $("fx"),
   hudMode: $("hud-mode"),
   hudTimer: $("hud-timer"),
   hudProgress: $("hud-progress"),
@@ -69,6 +68,7 @@ const el = {
   statCombo: $("stat-combo"),
   statAngle: $("stat-angle"),
   tierCounts: Object.fromEntries(TIERS.map((t) => [t.id, $(`tier-${t.id}`)])),
+  tierDist: $("tier-dist"),
   playBtn: $("play-btn"),
   endBtn: $("end-btn"),
   sourceBtn: $("source-btn"),
@@ -90,19 +90,10 @@ const el = {
 };
 
 const TIER = Object.fromEntries(TIERS.map((t) => [t.id, t]));
-const NEUTRAL_LEG = "rgba(255, 255, 255, 0.9)";
-const LOST_LEG = "#ff5a4f";
+const NEUTRAL_LEG = "rgba(242, 241, 238, 0.9)";
+const LOST_LEG = "#ffb020";
 const GAUGE_MAX = 125;
 const RING_CIRCUMFERENCE = 2 * Math.PI * 44;
-
-const BURSTS = {
-  perfect: { count: 46, colors: [TIER.perfect.color, "#ffffff", "#22e6ff"], speed: 520, size: 6, life: 0.9, spread: Math.PI * 2, gravity: 500 },
-  great: { count: 26, colors: [TIER.great.color, "#ffffff"], speed: 400, size: 5, life: 0.75, spread: Math.PI * 1.8, gravity: 600 },
-  good: { count: 14, colors: [TIER.good.color, "#bcd6ff"], speed: 300, size: 4, life: 0.6 },
-};
-const CONFETTI = ["#d4ff3a", "#22e6ff", "#a855f7", "#ff4d8d", "#ffffff", "#3ee0a5"];
-const FEVER_COLORS = ["#d4ff3a", "#d4ff3a", "#22e6ff", "#a855f7", "#ff4d8d"];
-const TRAIL_MS = 220;
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
 
 const TRACKING_MESSAGES = {
@@ -141,10 +132,8 @@ const realGame = new Game(store);
 let demoGame = null;
 let game = realGame;
 const detector = new SquatDetector();
-const particles = new Particles();
+const rings = new Rings();
 const ctx = el.canvas.getContext("2d");
-const fxParticles = new Particles();
-const fxCtx = el.fx.getContext("2d");
 
 let source = null; // "camera" | "demo" | null
 let landmarker = null;
@@ -158,8 +147,6 @@ let lastFrameT = performance.now();
 let loopStarted = false;
 let busy = false;
 let frame = { w: 640, h: 480 };
-let trail = [];
-let fever = 0;
 
 const saveSettings = () => store.set("settings", settings);
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
@@ -264,8 +251,7 @@ function stopSource() {
   game.reset();
   el.video.hidden = false;
   el.hudDemo.hidden = true;
-  particles.clear();
-  trail = [];
+  rings.clear();
   el.popupLayer.replaceChildren();
   ctx.clearRect(0, 0, el.canvas.width, el.canvas.height);
   onState("idle");
@@ -280,19 +266,13 @@ function configureStage(w, h) {
   sizeCanvas();
 }
 
-// Render the overlay at screen resolution so the neon stays crisp. Drawing code
+// Draw the overlay at screen resolution so lines stay crisp. The drawing code
 // works in canvas pixels and scales itself from the canvas width.
 function sizeCanvas() {
   const cssW = el.stage.clientWidth || frame.w;
   const k = clamp((cssW * (devicePixelRatio || 1)) / frame.w, 1, 2.5);
   el.canvas.width = Math.round(frame.w * k);
   el.canvas.height = Math.round(frame.h * k);
-}
-
-function sizeFx() {
-  const dpr = Math.min(devicePixelRatio || 1, 2);
-  el.fx.width = Math.round(innerWidth * dpr);
-  el.fx.height = Math.round(innerHeight * dpr);
 }
 
 // ---------- session flow ----------
@@ -323,8 +303,7 @@ async function play() {
 
 function startSession() {
   detector.recalibrate();
-  particles.clear();
-  trail = [];
+  rings.clear();
   el.popupLayer.replaceChildren();
   if (source === "demo") demo.restart({ script: settings.mode === "hold" ? "hold" : "reps" });
   handleGameEvents(game.start(settings.mode, settings.difficulty));
@@ -377,14 +356,10 @@ function loop() {
       onDetectorEvent(e);
       handleGameEvents(game.handle(e, t));
     }
-    const lms = result.landmarks?.[0];
-    if (lms && !reducedMotion.matches) trail.push({ lms, color: legColor(), t });
   }
-  trail = trail.filter((snap) => t - snap.t < TRAIL_MS);
   if (source) handleGameEvents(game.update(t, detector.state));
 
-  renderCanvas(dt, t);
-  renderFx(dt);
+  renderCanvas(dt);
   renderHud(t);
 }
 
@@ -411,44 +386,28 @@ function handleGameEvents(events) {
         restartAnimation(el.countdownNum);
         sfx.countdown();
         break;
-      case "go": {
+      case "go":
         if (source === "demo") demo.begin(now());
         el.goBanner.hidden = false;
         restartAnimation(el.goBanner);
-        const { width: w, height: h } = el.canvas;
-        const scale = w / 640;
-        particles.ring(w / 2, h / 2, { color: "#22e6ff", radius: 420, life: 0.7, width: 6, scale });
-        particles.ring(w / 2, h / 2, { color: "#d4ff3a", radius: 300, life: 0.6, width: 4, scale, delay: 0.08 });
-        shake("shake-sm");
         sfx.go();
         setFeedback(goMessage());
         break;
-      }
       case "rep":
         onRep(e);
         break;
-      case "multiplier": {
+      case "multiplier":
         popup(`×${e.multiplier.toFixed(1)}`, "mult", { x: 0.5, y: 0.38 }, "Combo multiplier");
         restartAnimation(el.combo, "bump");
-        const { width: w, height: h } = el.canvas;
-        const scale = w / 640;
-        const color = FEVER_COLORS[feverLevel(e.multiplier)];
-        particles.ring(w / 2, h * 0.38, { color, radius: 360, life: 0.8, width: 6, scale });
-        particles.ring(w / 2, h * 0.38, { color: "#ffffff", radius: 240, life: 0.6, width: 3, scale, delay: 0.1 });
-        particles.glints(w / 2, h * 0.38, { count: 8, color, radius: 160, scale });
-        fxBurstFrom(el.combo, { count: 40, colors: CONFETTI, speed: 520, angle: -Math.PI / 4, spread: Math.PI * 0.9 });
-        shake("shake");
         sfx.multiplier();
         break;
-      }
       case "comboBroken":
         setFeedback(`Combo of ${e.combo} lost. Go deeper to keep it going.`, "warn");
         sfx.comboBreak();
         break;
       case "rankUp":
-        toast("Rank up", e.rank.name, "Keep going to reach the next rank.", "bolt");
+        toast("Rank up", e.rank.name, "Keep going to reach the next rank.", "arrow-up");
         renderRank(true);
-        fxBurstFrom(el.rank, { count: 70, colors: CONFETTI, speed: 600, angle: Math.PI / 2, spread: Math.PI * 1.2 });
         break;
       case "achievement":
         toast(game === demoGame ? "Achievement · demo" : "Achievement", e.achievement.name, e.achievement.desc);
@@ -506,7 +465,6 @@ function onState(state) {
   el.gauge.hidden = !live;
   el.combo.hidden = !(state === "playing" && mode.id !== "hold");
   el.holdPrompt.hidden = !(state === "playing" && mode.id === "hold");
-  if (state !== "playing") setFever(0);
   renderControls();
   renderModes();
   renderDifficulty();
@@ -516,27 +474,8 @@ function onRep(e) {
   const anchor = lastMeasure?.ok ? lastMeasure.anchor : { x: 0.5, y: 0.5 };
   const sub = e.multiplier > 1 ? `${e.tier.label} ×${e.multiplier.toFixed(1)}` : e.tier.label;
   popup(`+${formatNumber(e.points)}`, e.tier.id, anchor, sub);
-  const x = anchor.x * el.canvas.width;
-  const y = anchor.y * el.canvas.height;
-  const scale = el.canvas.width / 640;
-  const color = e.tier.color;
-  const burst = BURSTS[e.tier.id];
-  if (burst) particles.burst(x, y, { ...burst, scale });
-  if (e.tier.id === "perfect") {
-    particles.ring(x, y, { color, radius: 260, life: 0.65, width: 7, scale });
-    particles.ring(x, y, { color: "#ffffff", radius: 180, life: 0.5, width: 3, scale, delay: 0.06 });
-    particles.ring(x, y, { color: "#22e6ff", radius: 340, life: 0.8, width: 2, scale, delay: 0.12 });
-    particles.glints(x, y, { count: 7, color: "#ffffff", radius: 120, scale });
-    shake("shake");
-    restartAnimation(el.stage, "chroma");
-    navigator.vibrate?.([25, 30, 25]);
-  } else if (e.tier.id === "great") {
-    particles.ring(x, y, { color, radius: 200, life: 0.55, width: 5, scale });
-    particles.glints(x, y, { count: 3, color, radius: 90, scale });
-    shake("shake-sm");
-    navigator.vibrate?.(20);
-  } else if (e.tier.id === "good") {
-    particles.ring(x, y, { color, radius: 150, life: 0.45, width: 4, scale });
+  if (e.tier.id === "perfect" && !reducedMotion.matches) {
+    rings.add(anchor.x * el.canvas.width, anchor.y * el.canvas.height, { color: TIER.perfect.color, radius: 120, scale: el.canvas.width / 640 });
   }
   flash(e.tier.id);
   sfx.rep(e.tier.id);
@@ -565,75 +504,22 @@ function goMessage() {
 
 // ---------- rendering ----------
 
-function renderCanvas(dt, t) {
+function renderCanvas(dt) {
   const { width: w, height: h } = el.canvas;
   ctx.clearRect(0, 0, w, h);
-  if (source === "demo") drawDemoBackdrop(ctx, w, h, reducedMotion.matches ? 0 : t, fever / 4);
+  if (source === "demo") drawDemoBackdrop(ctx, w, h);
   const lms = lastResult?.landmarks?.[0];
   if (source && lms) {
     const color = legColor();
-    if (source === "demo") drawFloorGlow(ctx, lms, { w, h, color });
-    drawTrails(ctx, trail, { w, h, now: t, span: TRAIL_MS });
     drawSkeleton(ctx, lms, { w, h, legColor: color, dim: !lastMeasure?.ok });
     const det = detector.state;
     if (lastMeasure?.ok && det.tracking && lastMeasure.legs?.length) {
-      drawKneeArc(ctx, lms, { w, h, side: lastMeasure.legs[0], angle: det.angle, color });
+      const px = w / (el.stage.clientWidth || w);
+      drawKneeArc(ctx, lms, { w, h, side: lastMeasure.legs[0], angle: det.angle, color, px });
     }
   }
-  particles.step(dt);
-  particles.draw(ctx);
-}
-
-function renderFx(dt) {
-  if (!fxParticles.size) {
-    if (el.fx.dataset.dirty) {
-      fxCtx.clearRect(0, 0, el.fx.width, el.fx.height);
-      delete el.fx.dataset.dirty;
-    }
-    return;
-  }
-  fxCtx.clearRect(0, 0, el.fx.width, el.fx.height);
-  fxParticles.step(dt);
-  fxParticles.draw(fxCtx);
-  el.fx.dataset.dirty = "1";
-}
-
-// Page-wide confetti from the middle of an element.
-function fxBurstFrom(node, opts) {
-  if (reducedMotion.matches) return;
-  const r = node.getBoundingClientRect();
-  const dpr = el.fx.width / innerWidth;
-  fxParticles.confetti((r.left + r.width / 2) * dpr, (r.top + r.height / 2) * dpr, { scale: dpr, ...opts });
-}
-
-function celebrate() {
-  if (reducedMotion.matches) return;
-  const dpr = el.fx.width / innerWidth;
-  const { width: w, height: h } = el.fx;
-  const cannon = { count: 110, colors: CONFETTI, speed: 1500, spread: 0.5, life: 3.4, scale: dpr };
-  fxParticles.confetti(0, h, { ...cannon, angle: -Math.PI / 3 });
-  fxParticles.confetti(w, h, { ...cannon, angle: (-Math.PI * 2) / 3 });
-  setTimeout(() => {
-    fxParticles.confetti(w * 0.5, h * 0.2, { count: 90, colors: CONFETTI, speed: 700, spread: Math.PI * 2, life: 3, scale: dpr });
-  }, 280);
-}
-
-function feverLevel(multiplier) {
-  return multiplier >= 3 ? 4 : multiplier >= 2.5 ? 3 : multiplier >= 2 ? 2 : multiplier > 1 ? 1 : 0;
-}
-
-function setFever(level) {
-  if (level === fever) return;
-  fever = level;
-  if (level) document.body.dataset.fever = String(level);
-  else delete document.body.dataset.fever;
-}
-
-function shake(cls) {
-  if (reducedMotion.matches) return;
-  el.stage.classList.remove("shake", "shake-sm");
-  void el.stage.offsetWidth;
-  el.stage.classList.add(cls);
+  rings.step(dt);
+  rings.draw(ctx);
 }
 
 function currentTier(det) {
@@ -675,13 +561,10 @@ function renderHud(t) {
   if (!el.combo.hidden) {
     const combo = game.session.combo;
     const mult = comboMultiplier(combo);
-    const level = feverLevel(mult);
     el.comboCount.textContent = String(combo);
     el.comboMult.textContent = `×${mult.toFixed(1)}`;
     el.combo.toggleAttribute("data-hot", mult > 1);
-    el.combo.dataset.level = String(level);
     el.comboBarFill.style.width = `${(comboProgress(combo) ?? 1) * 100}%`;
-    setFever(level);
   }
 }
 
@@ -745,11 +628,16 @@ function renderStats() {
   countTo(el.statReps, s.reps);
   countTo(el.statCombo, s.maxCombo);
   for (const t of TIERS) countTo(el.tierCounts[t.id], s.tiers[t.id]);
+  for (const seg of el.tierDist.children) {
+    const n = s.tiers[seg.dataset.tier];
+    seg.style.flexGrow = String(n);
+    seg.hidden = n === 0;
+  }
 }
 
-// Rolls a number up to its new value; drops (resets) snap straight there.
+// Rolls a number up to its new value. Drops (a reset) snap straight there.
 const counting = new Map();
-function countTo(node, value, format = String, { from, ms = 550 } = {}) {
+function countTo(node, value, format = String, { from, ms = 450 } = {}) {
   const start = from ?? Number(node.dataset.value ?? 0);
   node.dataset.value = String(value);
   cancelAnimationFrame(counting.get(node));
@@ -760,8 +648,7 @@ function countTo(node, value, format = String, { from, ms = 550 } = {}) {
   const t0 = now();
   const step = () => {
     const k = Math.min(1, (now() - t0) / ms);
-    const eased = 1 - Math.pow(1 - k, 3);
-    node.textContent = format(Math.round(start + (value - start) * eased));
+    node.textContent = format(Math.round(start + (value - start) * (1 - Math.pow(1 - k, 3))));
     if (k < 1) counting.set(node, requestAnimationFrame(step));
   };
   counting.set(node, requestAnimationFrame(step));
@@ -779,26 +666,37 @@ function renderControls() {
   el.resetProgress.disabled = active;
 }
 
+// Tabs are built once and updated in place, so the selection thumb can slide.
+const modeTabs = new Map();
 function renderModes() {
-  el.modeList.replaceChildren(
-    ...Object.values(MODES).map((mode) => {
+  if (!modeTabs.size) {
+    const thumb = document.createElement("span");
+    thumb.className = "mode-thumb";
+    el.modeList.append(thumb);
+    for (const mode of Object.values(MODES)) {
       const tab = document.createElement("button");
       tab.type = "button";
       tab.className = "mode-tab";
       tab.setAttribute("role", "tab");
-      tab.setAttribute("aria-selected", String(mode.id === settings.mode));
-      tab.disabled = game.active && mode.id !== settings.mode;
-
       const top = document.createElement("span");
       top.className = "mode-tab-top";
       top.append(icon(mode.icon), document.createTextNode(mode.name));
-      const best = game.boards[mode.id][0];
-      const meta = span("mode-tab-meta", best ? `Best ${formatBoardValue(mode, best.value)}` : mode.short);
+      const meta = span("mode-tab-meta", "");
       tab.append(top, meta);
       tab.addEventListener("click", () => selectMode(mode.id));
-      return tab;
-    })
-  );
+      el.modeList.append(tab);
+      modeTabs.set(mode.id, { tab, meta });
+    }
+  }
+  Object.values(MODES).forEach((mode, i) => {
+    const { tab, meta } = modeTabs.get(mode.id);
+    const selected = mode.id === settings.mode;
+    if (selected) el.modeList.style.setProperty("--i", String(i));
+    tab.setAttribute("aria-selected", String(selected));
+    tab.disabled = game.active && !selected;
+    const best = game.boards[mode.id][0];
+    meta.textContent = best ? `Best ${formatBoardValue(mode, best.value)}` : mode.short;
+  });
 }
 
 function renderBoard() {
@@ -936,7 +834,7 @@ function showResults(r) {
   } else if (r.mode === "hold") {
     el.resMain.textContent = formatTime(r.holdMs, { tenths: true });
   } else {
-    countTo(el.resMain, r.score, (v) => `${formatNumber(v)} pts`, { from: 0, ms: 1100 });
+    countTo(el.resMain, r.score, (v) => `${formatNumber(v)} pts`, { from: 0, ms: 900 });
   }
 
   el.resSub.classList.toggle("best", r.newBest);
@@ -975,13 +873,11 @@ function showResults(r) {
       const seg = document.createElement("span");
       seg.style.flexGrow = String(r.tiers[t.id]);
       seg.style.background = t.color;
-      seg.style.color = t.color;
       seg.title = `${t.label}: ${r.tiers[t.id]}`;
       return seg;
     })
   );
   showScreen("results");
-  if (r.newBest || r.grade === "S" || r.grade === "A") celebrate();
 }
 
 function setFeedback(text, tone = "") {
@@ -1022,8 +918,6 @@ function toast(kicker, title, body, iconName = "trophy") {
   strong.textContent = title;
   node.append(badge, span("toast-kicker", kicker), strong, span("", body));
   el.toasts.append(node);
-  // Wait for the slide-in to land before popping confetti off the badge.
-  setTimeout(() => fxBurstFrom(badge, { count: 28, colors: CONFETTI, speed: 380, spread: Math.PI * 1.4, life: 1.6, size: 7 }), 320);
   setTimeout(() => {
     node.classList.add("out");
     node.addEventListener("animationend", () => node.remove(), { once: true });
@@ -1077,23 +971,7 @@ el.resetProgress.addEventListener("click", () => {
   setFeedback("Progress reset.");
 });
 
-// Glass cards get a soft spotlight that follows the pointer.
-document.addEventListener(
-  "pointermove",
-  (e) => {
-    const card = e.target.closest?.(".glass");
-    if (!card) return;
-    const r = card.getBoundingClientRect();
-    card.style.setProperty("--mx", `${e.clientX - r.left}px`);
-    card.style.setProperty("--my", `${e.clientY - r.top}px`);
-  },
-  { passive: true }
-);
-
-addEventListener("resize", () => {
-  sizeFx();
-  sizeCanvas();
-});
+addEventListener("resize", sizeCanvas);
 
 document.addEventListener("keydown", (e) => {
   if (e.target.closest("input, select, textarea, button, summary")) return;
@@ -1107,7 +985,6 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
-sizeFx();
 renderSound();
 renderDifficulty();
 renderPanel();

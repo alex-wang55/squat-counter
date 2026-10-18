@@ -3,10 +3,10 @@
 // or below parallel), Great around 87°, Good around 107° (a solid half squat).
 // Colors run cool to bright as depth increases, ending on the accent color.
 export const TIERS = Object.freeze([
-  { id: "perfect", label: "Perfect", minFlex: 100, points: 100, color: "#d4ff3a" },
-  { id: "great", label: "Great", minFlex: 85, points: 70, color: "#3ee0a5" },
-  { id: "good", label: "Good", minFlex: 65, points: 50, color: "#5b9cff" },
-  { id: "shallow", label: "Shallow", minFlex: -Infinity, points: 10, color: "#737373" },
+  { id: "perfect", label: "Perfect", minFlex: 100, points: 100, color: "#ff6a1a" },
+  { id: "great", label: "Great", minFlex: 85, points: 70, color: "#34c77b" },
+  { id: "good", label: "Good", minFlex: 65, points: 50, color: "#4a90ff" },
+  { id: "shallow", label: "Shallow", minFlex: -Infinity, points: 10, color: "#6e6e73" },
 ]);
 
 export const DIFFICULTIES = Object.freeze({
